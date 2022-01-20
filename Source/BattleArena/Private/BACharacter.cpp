@@ -88,7 +88,7 @@ ABACharacter::ABACharacter()
 
 	// 컨트롤 모드 전환시 카메라 속도
 	fArmLengthSpeed = 3.0f;
-	fArmRotationSpeed = 100.0f;
+	fArmRotationSpeed = 5.0f;
 
 	// 점프 높이 조절
 	//GetCharacterMovement()->JumpZVelocity = 800.0f;		// 기존
@@ -372,14 +372,18 @@ void ABACharacter::Tick(float DeltaTime)
 	// 모드 변환시 부드러운 카메라 전환
 	SpringArm->TargetArmLength = FMath::FInterpTo(SpringArm->TargetArmLength, fArmLengthTo, DeltaTime, fArmLengthSpeed);					// 캐릭터와의 원근
 
-	// 아래 소스는 오류가 있음
-	//FRotator Controllll;			// test
-	//Controllll = SpringArm->GetRelativeRotation();
-	//BALOG(Warning, TEXT("Yaw %f, Pitch %f, Roll %f"), Controllll.Yaw, Controllll.Pitch, Controllll.Roll)
+	// 카메라의 부드러운 전환 해결됨 (SpringArm->SetRelativeRotation(GetViewRotation());)
+	FRotator Controllll;			// test
+	//FRotator Controllll = SpringArm->GetRelativeRotation();
+	//Controllll = GetViewRotation();
+	//BALOG(Warning, TEXT("GetViewRotation: Yaw %f, Pitch %f, Roll %f"), Controllll.Yaw, Controllll.Pitch, Controllll.Roll)
 
 	switch (CurrentControlMode)
 	{
 	case EControlMode::DIABLO:	
+
+		Controllll = SpringArm->GetRelativeRotation();
+		BALOG(Warning, TEXT("SpringArm: Yaw %f, Pitch %f, Roll %f"), Controllll.Yaw, Controllll.Pitch, Controllll.Roll)
 
 		SpringArm->SetRelativeRotation(FMath::RInterpTo(SpringArm->GetRelativeRotation(), ArmRotationTo, DeltaTime, fArmRotationSpeed));	// 카메라 회전
 
@@ -408,6 +412,27 @@ void ABACharacter::Tick(float DeltaTime)
 		break;
 	}
 
+}
+
+void ABACharacter::ViewChange()
+{
+	// test
+	//ControlRot = GetController()->GetControlRotation();
+	BALOG_S(Warning)
+
+		switch (CurrentControlMode)
+		{
+		case EControlMode::GTA:				// DIABLO 로 
+			SpringArm->SetRelativeRotation(GetViewRotation());							// 카메라 전환을 위해 추가함
+			GetController()->SetControlRotation(GetActorRotation());					// 컨트롤러의 회전을 사용하기 때문에(카메라 회전값과 다름), 소스가 없으면 전환시 캐릭터의 방향이 카메라 방향으로 돌아감 			
+			SetControlMode(EControlMode::DIABLO);
+			break;
+
+		case EControlMode::DIABLO:			// GTA 로 전환시
+			GetController()->SetControlRotation(SpringArm->GetRelativeRotation());		// 컨트롤 회전값을 카메라가 사용함, 전환시 캐릭터의 방향을 돌아가지 않게, 해당소스가 없으면 캐릭터가 회전한 뒤쪽으로 카메라가 바로 이동함
+			SetControlMode(EControlMode::GTA);
+			break;
+		}
 }
 
 // Called to bind functionality to input
@@ -493,25 +518,7 @@ void ABACharacter::Turn(float NewAxisValue)
 	}
 }
 
-void ABACharacter::ViewChange()
-{
-	// test
-	//ControlRot = GetController()->GetControlRotation();
-	BALOG_S(Warning)
 
-	switch (CurrentControlMode)
-	{
-	case EControlMode::GTA:
-		GetController()->SetControlRotation(GetActorRotation());					// 컨트롤러의 회전을 사용하기 때문에(카메라 회전값과 다름), 소스가 없으면 전환시 캐릭터의 방향이 카메라 방향으로 돌아감 			
-		SetControlMode(EControlMode::DIABLO);
-		break;
-
-	case EControlMode::DIABLO:
-		GetController()->SetControlRotation(SpringArm->GetRelativeRotation());		// 컨트롤 회전값을 카메라가 사용함, 전환시 캐릭터의 방향을 돌아가지 않게, 해당소스가 없으면 캐릭터가 회전한 뒤쪽으로 카메라가 바로 이동함
-		SetControlMode(EControlMode::GTA);	
-		break;
-	}
-}
 
 void ABACharacter::PostInitializeComponents()
 {
